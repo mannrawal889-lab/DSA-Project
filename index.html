@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Human to Skill Matching Network</title>
+  <style>
+:root {
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --text: #1f2a44;
+  --muted: #6b7690;
+  --line: #e2e7f1;
+  --accent: #4f46e5;
+  --accent-soft: #eef0ff;
+  --good: #16a34a;
+  --bad: #dc2626;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.top {
+  display: flex; flex-wrap: wrap; gap: 16px;
+  justify-content: space-between; align-items: center;
+  padding: 20px 28px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+}
+.top h1 { margin: 0; font-size: 1.5rem; }
+.sub { margin: 4px 0 0; opacity: .85; font-size: .9rem; }
+.stats { display: flex; gap: 12px; }
+.stats div {
+  background: rgba(255,255,255,.16); border-radius: 10px;
+  padding: 8px 16px; text-align: center; min-width: 78px;
+}
+.stats b { display: block; font-size: 1.4rem; }
+.stats span { font-size: .75rem; opacity: .85; }
+
+.message {
+  margin: 14px 28px 0; padding: 10px 14px; border-radius: 8px;
+  background: var(--accent-soft); color: var(--accent);
+  font-size: .92rem; display: none;
+}
+.message.error { background: #fee2e2; color: var(--bad); }
+.message.show { display: block; }
+
+.layout {
+  display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px;
+  padding: 18px 28px 8px;
+}
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; padding: 14px; } .top { padding: 16px; } .message { margin: 12px 14px 0; } }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 14px; padding: 18px;
+  box-shadow: 0 1px 3px rgba(31,42,68,.05);
+}
+.card h2 { margin: 0 0 6px; font-size: 1.05rem; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.card-head h2 { margin: 0; }
+.hint { margin: 0 0 10px; color: var(--muted); font-size: .85rem; }
+
+input[type="text"] {
+  width: 100%; padding: 10px 12px; font-size: .95rem;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--text);
+}
+input[type="text"]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row input { flex: 1 1 140px; }
+
+button {
+  font: inherit; font-size: .9rem; cursor: pointer;
+  border: 1px solid var(--line); background: #fff; color: var(--text);
+  padding: 8px 14px; border-radius: 8px;
+}
+button:hover { background: var(--accent-soft); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary:hover { background: #4338ca; }
+button.ghost { font-size: .8rem; padding: 6px 10px; color: var(--muted); }
+.btns { display: flex; gap: 6px; }
+button.danger:hover { background: #fee2e2; color: var(--bad); border-color: #fecaca; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px; font-size: .82rem;
+  background: var(--accent-soft); color: var(--accent);
+}
+.chip button {
+  border: none; background: none; padding: 0 0 0 2px; font-size: 1rem;
+  line-height: 1; color: var(--accent); cursor: pointer;
+}
+.chips.pick .chip { cursor: pointer; border: 1px solid transparent; }
+.chips.pick .chip.on { background: var(--accent); color: #fff; }
+
+.results { margin-top: 6px; }
+.result {
+  display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--line);
+}
+.result:last-child { border-bottom: none; }
+.rank {
+  width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft);
+  color: var(--accent); display: grid; place-items: center; font-size: .8rem; font-weight: 600;
+}
+.result .name { font-weight: 600; }
+.bar { height: 6px; background: var(--line); border-radius: 4px; margin-top: 5px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.score { font-weight: 600; color: var(--accent); }
+.empty { color: var(--muted); font-size: .9rem; padding: 6px 0; }
+
+.people { display: flex; flex-direction: column; gap: 10px; max-height: 460px; overflow-y: auto; }
+.person { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.person.hl { border-color: var(--accent); background: var(--accent-soft); }
+.person-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.person-top b { font-size: 1rem; }
+.person-top .btns button { font-size: .78rem; padding: 4px 9px; }
+.person .row { margin-top: 6px; }
+.person .row input { padding: 6px 10px; font-size: .85rem; }
+.person .row button { padding: 6px 10px; font-size: .82rem; }
+
+.graph { overflow-x: auto; }
+.graph svg { width: 100%; height: auto; min-width: 380px; display: block; }
+.graph .edge { stroke: #cbd2e3; stroke-width: 1.2; }
+.graph .edge.on { stroke: var(--accent); stroke-width: 2.2; }
+.graph .dim { opacity: .28; }
+.graph text { font-size: 13px; fill: var(--text); }
+.graph .p-dot { fill: #7c3aed; }
+.graph .s-dot { fill: #0ea5e9; }
+.graph .on-dot { stroke: var(--accent); stroke-width: 3; }
+
+.tests .t { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; font-size: .9rem; }
+.badge { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; flex: none; margin-top: 2px; }
+.badge.pass { background: var(--good); }
+.badge.fail { background: var(--bad); }
+.tests .summary { margin-top: 6px; font-weight: 600; }
+
+footer { padding: 18px 28px 26px; color: var(--muted); font-size: .8rem; text-align: center; }
+
+</style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Human to Skill Matching Network</h1>
+      <p class="sub">Graph + Hash Map + Array &middot; Data Structures Microproject &middot; SY-AIDS 2026-27</p>
+    </div>
+    <div class="stats">
+      <div><b id="statPeople">0</b><span>People</span></div>
+      <div><b id="statSkills">0</b><span>Skills</span></div>
+      <div><b id="statLinks">0</b><span>Links</span></div>
+    </div>
+  </header>
+
+  <div id="message" class="message" role="status"></div>
+
+  <main class="layout">
+    <!-- LEFT: match + graph -->
+    <section class="col">
+      <div class="card">
+        <h2>Find people by skill</h2>
+        <p class="hint">Type one or more skills, separated by commas. Results update as you type.</p>
+        <input id="queryInput" type="text" placeholder="e.g. python, sql" autocomplete="off">
+        <div id="skillChips" class="chips pick"></div>
+        <div id="results" class="results"></div>
+      </div>
+
+      <div class="card">
+        <h2>Network graph</h2>
+        <p class="hint">People on the left, skills on the right. A line means "has this skill".</p>
+        <div id="graph" class="graph"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: manage -->
+    <section class="col">
+      <div class="card">
+        <h2>Add a person</h2>
+        <form id="addForm" class="row">
+          <input id="newName" type="text" placeholder="Name" autocomplete="off">
+          <input id="newSkills" type="text" placeholder="Skills (comma separated)" autocomplete="off">
+          <button type="submit" class="primary">Add</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>People</h2>
+          <div class="btns">
+            <button id="btnSample" class="ghost">Reset sample data</button>
+            <button id="btnClear" class="ghost">Clear all</button>
+          </div>
+        </div>
+        <div id="people" class="people"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Tests (T1 - T6)</h2>
+          <button id="btnTests" class="primary">Run tests</button>
+        </div>
+        <div id="tests" class="tests"><p class="hint">Click "Run tests" to check the program against the Stage 2 test plan.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Nirav Panchal (37) &amp; Mann Rawal (50) &middot; Guided by Bhagyashree Patil Mam &middot; Fictional sample data only.
+    Matching is based only on skills entered and does not prove real-world ability.
+  </footer>
+
+  <script>
+// ============================================================
+//  Human to Skill Matching Network  -  core data-structure logic
+//  Nirav Panchal (37), Mann Rawal (50) | SY-AIDS | 2026-27
+//
+//  Data structures (as per Stage 1):
+//    1. Graph (adjacency list) -> personSkills + skillPeople
+//    2. Hash map               -> JavaScript Map (average O(1) lookup)
+//    3. Array (vector)         -> candidate lists, sorting
+// ============================================================
+
+class SkillNetwork {
+  constructor() {
+    this.personSkills = new Map(); // adjacency list: person -> [skills]
+    this.skillPeople = new Map();  // adjacency list: skill  -> [people]
+    this.displayName = new Map();  // person key -> name as typed
+  }
+
+  // trim + lowercase + single spaces ("  Web   Dev " -> "web dev")
+  static norm(s) {
+    return String(s == null ? "" : s).trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  // "python, SQL ,c++" -> ["python","sql","c++"] (no duplicates, no empties)
+  static splitSkills(text) {
+    const out = [];
+    for (const part of String(text || "").split(",")) {
+      const n = SkillNetwork.norm(part);
+      if (n && !out.includes(n)) out.push(n);
+    }
+    return out;
+  }
+
+  // Insertion: add person                                O(1) average
+  addPerson(raw) {
+    const key = SkillNetwork.norm(raw);
+    if (!key || this.personSkills.has(key)) return false;
+    this.personSkills.set(key, []);
+    this.displayName.set(key, String(raw).trim().replace(/\s+/g, " "));
+    return true;
+  }
+
+  // Insertion: link person -> skill (creates skill node if new)   O(d)
+  addSkill(rawPerson, rawSkill) {
+    const p = SkillNetwork.norm(rawPerson);
+    const s = SkillNetwork.norm(rawSkill);
+    if (!p || !s || !this.personSkills.has(p)) return false;
+    const list = this.personSkills.get(p);
+    if (list.includes(s)) return false; // link already exists
+    list.push(s);
+    if (!this.skillPeople.has(s)) this.skillPeople.set(s, []);
+    this.skillPeople.get(s).push(p);
+    return true;
+  }
+
+  // Deletion: remove one person-skill link               O(d)
+  removeSkill(rawPerson, rawSkill) {
+    const p = SkillNetwork.norm(rawPerson);
+    const s = SkillNetwork.norm(rawSkill);
+    const list = this.personSkills.get(p);
+    if (!list || !list.includes(s)) return false;
+    list.splice(list.indexOf(s), 1);
+    const people = this.skillPeople.get(s).filter((x) => x !== p);
+    if (people.length) this.skillPeople.set(s, people);
+    else this.skillPeople.delete(s); // drop unused skill node
+    return true;
+  }
+
+  // Deletion: remove a person and all their links       O(d * k)
+  removePerson(rawPerson) {
+    const p = SkillNetwork.norm(rawPerson);
+    if (!this.personSkills.has(p)) return false;
+    for (const s of [...this.personSkills.get(p)]) this.removeSkill(p, s);
+    this.personSkills.delete(p);
+    this.displayName.delete(p);
+    return true;
+  }
+
+  // Searching: everyone with ONE skill                   O(1 + k)
+  searchBySkill(rawSkill) {
+    const list = this.skillPeople.get(SkillNetwork.norm(rawSkill));
+    return list ? [...list].sort() : [];
+  }
+
+  // Matching + Ranking: score = number of requested skills a person has.
+  // Sorted high -> low, ties alphabetical.               O(m*k + n log n)
+  matchAndRank(required) {
+    const score = new Map(); // hash map of scores
+    for (const s of required) {
+      for (const p of this.skillPeople.get(s) || []) {
+        score.set(p, (score.get(p) || 0) + 1);
+      }
+    }
+    return [...score.entries()]
+      .map(([person, points]) => ({ person, score: points }))
+      .sort((a, b) => b.score - a.score || a.person.localeCompare(b.person));
+  }
+
+  // View network: skills of one person
+  getSkills(rawPerson) {
+    const list = this.personSkills.get(SkillNetwork.norm(rawPerson));
+    return list ? [...list].sort() : null;
+  }
+
+  // Traversal (BFS): everyone reachable through shared skills   O(V + E)
+  bfs(rawPerson) {
+    const start = SkillNetwork.norm(rawPerson);
+    if (!this.personSkills.has(start)) return [];
+    const order = [];
+    const seenP = new Set([start]);
+    const seenS = new Set();
+    const queue = [start];
+    while (queue.length) {
+      const cur = queue.shift();
+      order.push(cur);
+      for (const s of this.personSkills.get(cur)) {
+        if (seenS.has(s)) continue;
+        seenS.add(s);
+        for (const p of this.skillPeople.get(s)) {
+          if (!seenP.has(p)) {
+            seenP.add(p);
+            queue.push(p);
+          }
+        }
+      }
+    }
+    return order;
+  }
+
+  people() { return [...this.personSkills.keys()].sort(); }
+  skills() { return [...this.skillPeople.keys()].sort(); }
+  nameOf(key) { return this.displayName.get(key) || key; }
+}
+
+// ---------- fictional sample data (no real personal data) ----------
+const SAMPLE_DATA = [
+  ["Aarav", "python, sql, data analysis"],
+  ["Diya", "python, web development, design"],
+  ["Kabir", "c++, python, sql"],
+  ["Meera", "design, web development"],
+  ["Rohan", "sql, data analysis"],
+  ["Sana", "python, sql, web development, design"],
+];
+
+function loadSample(net) {
+  for (const [name, skills] of SAMPLE_DATA) {
+    net.addPerson(name);
+    for (const s of SkillNetwork.splitSkills(skills)) net.addSkill(name, s);
+  }
+}
+
+// ---------- Stage 2 test plan, T1 - T6 ----------
+function runTests() {
+  const results = [];
+  const check = (id, text, pass) => results.push({ id, text, pass: !!pass });
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+  const net = new SkillNetwork();
+  loadSample(net);
+
+  // T1 profile insertion
+  net.addPerson("Test Person");
+  net.addSkill("Test Person", "Go");
+  net.addSkill("Test Person", "Rust");
+  const sk = net.getSkills("test person");
+  check("T1", "Profile insertion: person with 2 skills stored and retrievable",
+    same(sk, ["go", "rust"]));
+  net.removePerson("Test Person");
+
+  // T2 search by one skill
+  check("T2", "Search 'design' returns exactly Diya, Meera, Sana",
+    same(net.searchBySkill("Design"), ["diya", "meera", "sana"]));
+
+  // T3 multiple-skill matching
+  const r3 = net.matchAndRank(["python", "sql"]);
+  const both = r3.filter((r) => r.score === 2).map((r) => r.person);
+  check("T3", "Python + SQL: Aarav, Kabir, Sana get the top score (2)",
+    same(both, ["aarav", "kabir", "sana"]));
+
+  // T4 ranking order
+  let desc = true;
+  for (let i = 1; i < r3.length; i++) if (r3[i - 1].score < r3[i].score) desc = false;
+  check("T4", "Results are in descending score order", desc);
+
+  // T5 unknown skill
+  check("T5", "Unknown skill returns no results (no crash)",
+    net.searchBySkill("cooking").length === 0 &&
+    net.matchAndRank(["cooking"]).length === 0);
+
+  // T6 empty / duplicate
+  const dupPerson = !net.addPerson("AARAV");
+  const dupSkill = !net.addSkill("aarav", " Python ");
+  const empty = net.matchAndRank([]).length === 0 && !net.addPerson("   ");
+  check("T6", "Duplicate profile, duplicate skill and empty input handled",
+    dupPerson && dupSkill && empty);
+
+  return results;
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { SkillNetwork, SAMPLE_DATA, loadSample, runTests };
+}
+
+</script>
+  <script>
+// ============================================================
+//  UI layer: connects the page to the SkillNetwork (network.js)
+// ============================================================
+const net = new SkillNetwork();
+let highlightPeople = null; // set by BFS button (array of person keys)
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// ---------- message bar ----------
+let msgTimer;
+function say(text, isError) {
+  const m = $("message");
+  m.textContent = text;
+  m.className = "message show" + (isError ? " error" : "");
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => (m.className = "message"), 5000);
+}
+
+// ---------- current query (from the text box) ----------
+function currentQuery() {
+  return SkillNetwork.splitSkills($("queryInput").value);
+}
+
+// ---------- renderers ----------
+function renderStats() {
+  let links = 0;
+  for (const p of net.people()) links += net.getSkills(p).length;
+  $("statPeople").textContent = net.people().length;
+  $("statSkills").textContent = net.skills().length;
+  $("statLinks").textContent = links;
+}
+
+function renderSkillChips() {
+  const q = currentQuery();
+  const skills = net.skills();
+  $("skillChips").innerHTML = skills.length
+    ? skills.map((s) => `<span class="chip ${q.includes(s) ? "on" : ""}" data-skill="${esc(s)}">${esc(s)}</span>`).join("")
+    : '<span class="empty">No skills yet.</span>';
+}
+
+function renderResults() {
+  const q = currentQuery();
+  const box = $("results");
+  if (!q.length) {
+    box.innerHTML = '<p class="empty">Enter or click a skill above to see ranked matches.</p>';
+    return;
+  }
+  const ranked = net.matchAndRank(q);
+  if (!ranked.length) {
+    box.innerHTML = '<p class="empty">No matching people found.</p>';
+    return;
+  }
+  box.innerHTML = ranked
+    .map(
+      (r, i) => `
+      <div class="result">
+        <div class="rank">${i + 1}</div>
+        <div>
+          <div class="name">${esc(net.nameOf(r.person))}</div>
+          <div class="bar"><i style="width:${(r.score / q.length) * 100}%"></i></div>
+        </div>
+        <div class="score">${r.score}/${q.length}</div>
+      </div>`
+    )
+    .join("");
+}
+
+function renderPeople() {
+  const people = net.people();
+  if (!people.length) {
+    $("people").innerHTML = '<p class="empty">No people yet. Add one above.</p>';
+    return;
+  }
+  $("people").innerHTML = people
+    .map((p) => {
+      const skills = net.getSkills(p);
+      const hl = highlightPeople && highlightPeople.includes(p) ? " hl" : "";
+      return `
+      <div class="person${hl}" data-person="${esc(p)}">
+        <div class="person-top">
+          <b>${esc(net.nameOf(p))}</b>
+          <div class="btns">
+            <button data-act="bfs" title="Find people connected through shared skills (BFS)">Connected</button>
+            <button class="danger" data-act="delPerson">Delete</button>
+          </div>
+        </div>
+        <div class="chips">
+          ${skills.length
+            ? skills.map((s) => `<span class="chip">${esc(s)}<button data-act="delSkill" data-skill="${esc(s)}" title="Remove skill">&times;</button></span>`).join("")
+            : '<span class="empty">No skills yet</span>'}
+        </div>
+        <div class="row">
+          <input type="text" placeholder="Add skill(s)..." data-input="skill" autocomplete="off">
+          <button data-act="addSkill">+ Add</button>
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
+function renderGraph() {
+  const people = net.people();
+  const skills = net.skills();
+  if (!people.length) {
+    $("graph").innerHTML = '<p class="empty">The graph is empty.</p>';
+    return;
+  }
+  const q = currentQuery();
+  const scores = new Map(net.matchAndRank(q).map((r) => [r.person, r.score]));
+  const filtering = q.length > 0;
+
+  const rows = Math.max(people.length, skills.length, 2);
+  const H = rows * 34 + 30;
+  const W = 640, PX = 190, SX = 450;
+  const yOf = (i, n) => (n <= 1 ? H / 2 : 24 + (i * (H - 48)) / (n - 1));
+  const py = new Map(people.map((p, i) => [p, yOf(i, people.length)]));
+  const sy = new Map(skills.map((s, i) => [s, yOf(i, skills.length)]));
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  for (const p of people) {
+    for (const s of net.getSkills(p)) {
+      const on = filtering && q.includes(s);
+      svg += `<line class="edge${on ? " on" : ""}${filtering && !on ? " dim" : ""}" x1="${PX}" y1="${py.get(p)}" x2="${SX}" y2="${sy.get(s)}"/>`;
+    }
+  }
+  for (const p of people) {
+    const on = (filtering && scores.has(p)) || (highlightPeople && highlightPeople.includes(p));
+    const dim = (filtering && !scores.has(p)) || (!filtering && highlightPeople && !highlightPeople.includes(p));
+    svg += `<g class="${dim ? "dim" : ""}"><circle class="p-dot${on ? " on-dot" : ""}" cx="${PX}" cy="${py.get(p)}" r="8"/>` +
+           `<text x="${PX - 14}" y="${py.get(p) + 4}" text-anchor="end">${esc(net.nameOf(p))}</text></g>`;
+  }
+  for (const s of skills) {
+    const on = filtering && q.includes(s);
+    svg += `<g class="${filtering && !on ? "dim" : ""}"><circle class="s-dot${on ? " on-dot" : ""}" cx="${SX}" cy="${sy.get(s)}" r="8"/>` +
+           `<text x="${SX + 14}" y="${sy.get(s) + 4}">${esc(s)}</text></g>`;
+  }
+  svg += "</svg>";
+  $("graph").innerHTML = svg;
+}
+
+function renderAll() {
+  renderStats();
+  renderSkillChips();
+  renderResults();
+  renderPeople();
+  renderGraph();
+}
+
+// ---------- events ----------
+$("queryInput").addEventListener("input", () => {
+  highlightPeople = null;
+  renderSkillChips();
+  renderResults();
+  renderPeople();
+  renderGraph();
+});
+
+// click a skill chip -> toggle it in the query box
+$("skillChips").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-skill]");
+  if (!chip) return;
+  const s = chip.dataset.skill;
+  const q = currentQuery();
+  const next = q.includes(s) ? q.filter((x) => x !== s) : [...q, s];
+  $("queryInput").value = next.join(", ");
+  $("queryInput").dispatchEvent(new Event("input"));
+});
+
+// add person form
+$("addForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = $("newName").value;
+  if (!SkillNetwork.norm(name)) return say("Please enter a name.", true);
+  if (!net.addPerson(name)) return say("That person already exists.", true);
+  const skills = SkillNetwork.splitSkills($("newSkills").value);
+  skills.forEach((s) => net.addSkill(name, s));
+  $("newName").value = "";
+  $("newSkills").value = "";
+  say(`Added ${name.trim()} with ${skills.length} skill(s).`);
+  renderAll();
+});
+
+// buttons inside the people list (event delegation)
+$("people").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const card = btn.closest("[data-person]");
+  const p = card.dataset.person;
+  const act = btn.dataset.act;
+
+  if (act === "delPerson") {
+    net.removePerson(p);
+    highlightPeople = null;
+    say("Person removed.");
+  } else if (act === "delSkill") {
+    net.removeSkill(p, btn.dataset.skill);
+    say("Skill removed.");
+  } else if (act === "addSkill") {
+    const input = card.querySelector('[data-input="skill"]');
+    const skills = SkillNetwork.splitSkills(input.value);
+    if (!skills.length) return say("Type a skill first.", true);
+    const added = skills.filter((s) => net.addSkill(p, s)).length;
+    say(added ? `${added} skill(s) added.` : "Skill already linked.", !added);
+  } else if (act === "bfs") {
+    const order = net.bfs(p);
+    highlightPeople = order;
+    $("queryInput").value = "";
+    say("Connected through shared skills (BFS order): " + order.map((x) => net.nameOf(x)).join(" → "));
+  }
+  renderAll();
+});
+
+// pressing Enter inside a person's skill box
+$("people").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.matches('[data-input="skill"]')) {
+    e.target.closest(".person").querySelector('[data-act="addSkill"]').click();
+  }
+});
+
+$("btnSample").addEventListener("click", () => {
+  clearNet();
+  loadSample(net);
+  say("Sample data loaded.");
+  renderAll();
+});
+$("btnClear").addEventListener("click", () => {
+  clearNet();
+  say("Everything cleared.");
+  renderAll();
+});
+function clearNet() {
+  for (const p of net.people()) net.removePerson(p);
+  highlightPeople = null;
+  $("queryInput").value = "";
+}
+
+$("btnTests").addEventListener("click", () => {
+  const res = runTests();
+  const passed = res.filter((r) => r.pass).length;
+  $("tests").innerHTML =
+    res.map((r) => `<div class="t"><span class="badge ${r.pass ? "pass" : "fail"}">${r.pass ? "PASS" : "FAIL"}</span><span><b>${r.id}</b> &ndash; ${esc(r.text)}</span></div>`).join("") +
+    `<div class="summary">${passed} of ${res.length} tests passed</div>`;
+});
+
+// ---------- start ----------
+loadSample(net);
+renderAll();
+
+</script>
+</body>
+</html>
